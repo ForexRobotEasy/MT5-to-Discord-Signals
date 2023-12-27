@@ -1,0 +1,126 @@
+mql5
+//+------------------------------------------------------------------+
+//|                                            MT5 to Discord Signals|
+//|                                     https://www.forexroboteasy.com|
+//|                                                   Forex Robot Easy Team|
+//+------------------------------------------------------------------+
+
+// Import necessary libraries
+#include <Discord.mqh>
+
+//+------------------------------------------------------------------+
+//| Constants                                                        |
+//+------------------------------------------------------------------+
+#define DISCORD_TOKEN 'your_discord_token'
+#define DISCORD_CHANNEL_ID 'your_discord_channel_id'
+
+//+------------------------------------------------------------------+
+//| Global variables                                                 |
+//+------------------------------------------------------------------+
+CClient client; // Discord client object
+
+//+------------------------------------------------------------------+
+//| Customizable notification settings                               |
+//+------------------------------------------------------------------+
+bool notifyOrdersPlaced = true; // Flag to enable/disable order placed notifications
+bool notifyOrdersModified = true; // Flag to enable/disable order modified notifications
+bool notifyOrdersExecuted = true; // Flag to enable/disable order executed notifications
+bool notifyOrdersClosed = true; // Flag to enable/disable order closed notifications
+
+//+------------------------------------------------------------------+
+//| Initialization function                                          |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+   // Initialize the Discord client
+   if(!client.Initialize(DISCORD_TOKEN))
+   {
+      Print('Failed to initialize Discord client!');
+      return INIT_FAILED;
+   }
+
+   // Subscribe to trading events
+   if(!client.SubscribeToTradeEvents())
+   {
+      Print('Failed to subscribe to trade events!');
+      return INIT_FAILED;
+   }
+
+   return INIT_SUCCEEDED;
+}
+
+//+------------------------------------------------------------------+
+//| Trading event function                                           |
+//+------------------------------------------------------------------+
+void OnTrade()
+{
+   MqlTradeRequest request;
+   MqlTradeResult result;
+
+   // Get the latest trade event
+   if(!HistoryDealGetTicket(0, request.ticket))
+      return;
+
+   // Check the type of trade event
+   if(request.type == TRADE_TRANSACTION_DEAL_ADD && notifyOrdersPlaced)
+   {
+      // Notify Discord channel about order placed
+      SendNotification('Order Placed: Ticket #' + IntegerToString(request.ticket));
+   }
+   else if(request.type == TRADE_TRANSACTION_DEAL_MODIFY && notifyOrdersModified)
+   {
+      // Notify Discord channel about order modified
+      SendNotification('Order Modified: Ticket #' + IntegerToString(request.ticket));
+   }
+   else if(request.type == TRADE_TRANSACTION_DEAL_EXECUTE && notifyOrdersExecuted)
+   {
+      // Notify Discord channel about order executed
+      SendNotification('Order Executed: Ticket #' + IntegerToString(request.ticket));
+   }
+   else if(request.type == TRADE_TRANSACTION_DEAL_CLOSE && notifyOrdersClosed)
+   {
+      // Notify Discord channel about order closed
+      SendNotification('Order Closed: Ticket #' + IntegerToString(request.ticket));
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Function to send notification to Discord channel                  |
+//+------------------------------------------------------------------+
+void SendNotification(string message)
+{
+   // Prepare the Discord message
+   CDiscordMessage discordMessage;
+   discordMessage.channel_id = DISCORD_CHANNEL_ID;
+   discordMessage.content = message;
+
+   // Send the message to Discord channel
+   if(!client.SendMessage(discordMessage))
+   {
+      Print('Failed to send notification to Discord channel!');
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Deinitialization function                                        |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+   // Disconnect from Discord
+   client.Disconnect();
+}
+
+//+------------------------------------------------------------------+
+//| Expert initialization function                                   |
+//+------------------------------------------------------------------+
+int start()
+{
+   // Register the trading event function
+   if(!EventSetMillisecondTimer(OnTrade))
+   {
+      Print('Failed to register event function!');
+      return 0;
+   }
+
+   return(0);
+}
